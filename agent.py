@@ -12,13 +12,13 @@ class Agent:
         :param output_size: Anzahl der möglichen Aktionen (hier 4 Mölg. LEFT, RIGHT, UP, DOWN).
         :param learning_rate:
         """
-        self.model = nn.Sequential(
+        self.model = nn.Sequential( # Platzhalter später in model.py
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size)
         )
-        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate) # Platzhalter später in model.py
+        self.criterion = nn.MSELoss() # Platzhalter später in model.py
 
         # Mögliche Aktionen, die der Agent ausführen kann
         self.actions = ['LEFT', 'RIGHT', 'UP', 'DOWN']
