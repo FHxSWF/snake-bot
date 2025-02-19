@@ -51,6 +51,8 @@ def main():
     game_over = False
     game_close = False
 
+    direction = None #Aktuelle Richtung
+
     while not game_over:
         # Schleife für den Game-Over-Zustand
         while game_close:
@@ -76,19 +78,18 @@ def main():
             if event.type == pygame.QUIT:
                 game_over = True
             if event.type == pygame.KEYDOWN:
-                # Richtungsänderung: jeweils nur in eine Richtung (kein diagonaler Move)
-                if event.key == pygame.K_LEFT:
-                    snake_x_change = -snake_block_size
-                    snake_y_change = 0
-                elif event.key == pygame.K_RIGHT:
-                    snake_x_change = snake_block_size
-                    snake_y_change = 0
-                elif event.key == pygame.K_UP:
-                    snake_y_change = -snake_block_size
-                    snake_x_change = 0
-                elif event.key == pygame.K_DOWN:
-                    snake_y_change = snake_block_size
-                    snake_x_change = 0
+                if event.key == pygame.K_LEFT and direction != "RIGHT": #Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
+                    snake_x_change, snake_y_change = -snake_block_size, 0
+                    direction = "LEFT"
+                elif event.key == pygame.K_RIGHT and direction != "LEFT":
+                    snake_x_change, snake_y_change = snake_block_size, 0
+                    direction = "RIGHT"
+                elif event.key == pygame.K_UP and direction != "DOWN":
+                    snake_x_change, snake_y_change = 0, -snake_block_size
+                    direction = "UP"
+                elif event.key == pygame.K_DOWN and direction != "UP":
+                    snake_x_change, snake_y_change = 0, snake_block_size
+                    direction = "DOWN"
 
         # Kollision mit den Spielfenstergrenzen
         if snake_x >= window_width or snake_x < 0 or snake_y >= window_height or snake_y < 0:
