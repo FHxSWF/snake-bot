@@ -11,7 +11,7 @@ class Direction(Enum):
     DOWN = 4
 
 
-#RELEVAnTE VARIABLEN
+#RELEVANTE VARIABLEN
 """
 snake_head: aktuelle Position der Schlange
 snake_list[]: Liste von Positionen aller Körperteile
