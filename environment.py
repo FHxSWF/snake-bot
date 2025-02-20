@@ -1,16 +1,24 @@
 import pygame
 import random
 
+
+
+
+#RELEVAnTE VARIABLEN
+"""
+snake_head: aktuelle Position der Schlange
+snake_list[]: Liste von Positionen aller Körperteile
+direction: String in welche richtung sich die Schlange bewegt
+food_pos: koordinaten des essens
+hindernis: alle koordinaten in denen man verliert
+Aktionen: UP DOWN LEFT RIGHT keys
+
+
+"""
 def main():
     # Pygame initialisieren
     pygame.init()
 
-
-    #Bilder der Schlange laden
-    pic_head = pygame.image.load('assets/snake_head.png')
-    pic_body = pygame.image.load('assets/snake_body.png')
-    pic_apple = pygame.image.load('assets/apple.png')
-    pic_background = pygame.image.load('assets/snake_background.png')
 
     # Fenster- und Spielvariablen
     window_width = 500
@@ -20,6 +28,13 @@ def main():
     text_size = 30
     text_x_offset = window_width / 6
     text_y_offset = window_height / 3
+
+    # Bilder der Schlange laden
+    pic_head = pygame.image.load('assets/snake_head.png')
+    pic_body = pygame.image.load('assets/snake_body.png')
+    pic_apple = pygame.image.load('assets/apple.png')
+    pic_background = pygame.image.load('assets/snake_background.png')
+
 
     # Farben (R, G, B)
     color_background = (0, 0, 0)
@@ -39,23 +54,57 @@ def main():
     snake_x = window_width / 2
     snake_y = window_height / 2
     snake_x_change = 0
-    snake_y_change = 0
+    snake_y_change = snake_block_size
 
     snake_list = []    # Enthält alle Segmente (Positionen) der Schlange
     snake_length = 1   # Startlänge der Schlange
 
+    #Umrandung der map
+    map_border = []
+    for x in range(window_width):
+        if x % snake_block_size == 0:
+            map_border.append((x , -snake_block_size))
+            map_border.append((x , window_width+snake_block_size))
+    for y in range(window_height):
+        if y % snake_block_size == 0:
+            map_border.append((-snake_block_size, y))
+            map_border.append((window_height+snake_block_size, y))
+
     # Zufällige Position des Futters (auf einem Raster, das zur Schlange passt)
-    food_x = round(random.randrange(0, window_width - snake_block_size) / snake_block_size) * snake_block_size
-    food_y = round(random.randrange(0, window_height - snake_block_size) / snake_block_size) * snake_block_size
+    all_positions = set()
+    for x in range(window_width):
+        if x % snake_block_size == 0:
+            for y in range(window_height):
+                if y % snake_block_size == 0:
+                    all_positions.add((x, y))
+
+    valid_positions = list(all_positions - set(snake_list))
+    food_pos = random.choice(valid_positions) if valid_positions else None
 
     game_over = False
     game_close = False
 
-    direction = None #Aktuelle Richtung
+    direction = "DOWN" #Aktuelle Richtung
 
     while not game_over:
+
         # Schleife für den Game-Over-Zustand
         while game_close:
+            # Startposition und -geschwindigkeit der Schlange
+            snake_x = window_width / 2
+            snake_y = window_height / 2
+            snake_x_change = 0
+            snake_y_change = snake_block_size
+
+            snake_list = []  # Enthält alle Segmente (Positionen) der Schlange
+            snake_length = 1  # Startlänge der Schlange
+
+            game_over = False
+            game_close = False
+
+            direction = "DOWN"  # Aktuelle Richtung
+
+            """
             screen.fill(color_background)
             message = font_style.render("Game Over! Drücke Q zum Beenden oder C zum Neustarten", True, color_text)
             screen.blit(message, (text_x_offset, text_y_offset))
@@ -70,14 +119,17 @@ def main():
                         game_over = True
                         game_close = False
                     if event.key == pygame.K_c:
-                        main()  # Neustart des Spiels
-                        return
-
+                        
+            """
         # Ereignisschleife
+        already_pressed = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game_over = True
             if event.type == pygame.KEYDOWN:
+                if already_pressed:
+                    break
+                already_pressed = True
                 if event.key == pygame.K_LEFT and direction != "RIGHT": #Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
                     snake_x_change, snake_y_change = -snake_block_size, 0
                     direction = "LEFT"
@@ -91,29 +143,31 @@ def main():
                     snake_x_change, snake_y_change = 0, snake_block_size
                     direction = "DOWN"
 
-        # Kollision mit den Spielfenstergrenzen
-        if snake_x >= window_width or snake_x < 0 or snake_y >= window_height or snake_y < 0:
-            game_close = True
+
 
         # Position der Schlange aktualisieren
         snake_x += snake_x_change
         snake_y += snake_y_change
 
-        screen.fill(color_background)
+        screen.blit(pic_background, (0, 0))
         # Futter zeichnen
         #pygame.draw.rect(screen, color_food, [food_x, food_y, snake_block_size, snake_block_size])
-        screen.blit(pic_apple, (food_x, food_y))
+        screen.blit(pic_apple, (food_pos[0], food_pos[1]))
 
         # Aktuelle Position als Kopf der Schlange definieren
-        snake_head = [snake_x, snake_y]
+        snake_head = (int(snake_x), int(snake_y))
         snake_list.append(snake_head)
         if len(snake_list) > snake_length:
             del snake_list[0]
 
-        # Kollision mit sich selbst
-        for segment in snake_list[:-1]:
+        #Hindernisse(rand und eigener Körper außer kopf)
+        hindernis = map_border.copy()
+        hindernis.extend(snake_list[:-1])
+        # Kollision Hindernis
+        for segment in hindernis:
             if segment == snake_head:
                 game_close = True
+
 
         # Schlange zeichnen
         for segment in snake_list:
@@ -131,14 +185,17 @@ def main():
         pygame.display.update()
 
         # Prüfen, ob Futter gefressen wurde
-        if snake_x == food_x and snake_y == food_y:
-            food_x = round(random.randrange(0, window_width - snake_block_size) / snake_block_size) * snake_block_size
-            food_y = round(random.randrange(0, window_height - snake_block_size) / snake_block_size) * snake_block_size
+        if snake_x == food_pos[0] and snake_y == food_pos[1]:
+            valid_positions = list(all_positions - set(snake_list))
+            food_pos = random.choice(valid_positions) if valid_positions else None
             snake_length += 1
 
         clock.tick(game_speed)
 
     pygame.quit()
+
+
+
 
 if __name__ == "__main__":
     main()
