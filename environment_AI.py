@@ -6,17 +6,6 @@ import pygame
 import random
 
 
-
-
-#RELEVANTE VARIABLEN
-"""
-snake_head: aktuelle Position der Schlange
-snake_list[]: Liste von Positionen aller Körperteile
-direction: String in welche richtung sich die Schlange bewegt
-food_pos: koordinaten des essens
-hindernis: alle koordinaten in denen man verliert
-Aktionen: UP DOWN LEFT RIGHT keys
-"""
 # Pygame initialisieren
 pygame.init()
 
@@ -143,51 +132,63 @@ class SnakeEnvironment:
 
     def play_step(self, action):
         self.already_pressed = False
-        self.clock.tick(GAME_SPEED)
+
         # 1. collect user input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-        """
-         def play_step(self, action):
-        self.frame_iteration += 1
-        # 1. collect user input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-        
+            #DAS HIER GEHRT NICHT DAZU
+            if event.type == pygame.KEYDOWN:
+                if self.already_pressed:
+                    break
+                self.already_pressed = True
+                if event.key == pygame.K_LEFT and self.direction != "RIGHT":  # Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
+                    self.snake_change = Point(-SNAKE_BLOCK_SIZE, 0)
+                    self.direction = "LEFT"
+                elif event.key == pygame.K_RIGHT and self.direction != "LEFT":
+                    self.snake_change  = Point(SNAKE_BLOCK_SIZE, 0)
+                    self.direction = "RIGHT"
+                elif event.key == pygame.K_UP and self.direction != "DOWN":
+                    self.snake_change  = Point(0, -SNAKE_BLOCK_SIZE)
+                    self.direction = "UP"
+                elif event.key == pygame.K_DOWN and self.direction != "UP":
+                    self.snake_change  = Point(0, SNAKE_BLOCK_SIZE)
+                    self.direction = "DOWN"
+
         # 2. move
-        self._move(action) # update the head
-        self.snake.insert(0, self.head)
-        
+        self._move(action)  # update the head
+
         # 3. check if game over
         reward = 0
         game_over = False
-        if self.is_collision() or self.frame_iteration > 100*len(self.snake):
+        if self.is_collision():
             game_over = True
             reward = -10
-            return reward, game_over, self.score
+            #return reward, game_over, self.score
+            return game_over, self.score
+        self.ate()
 
-        # 4. place new food or just move
-        if self.head == self.food:
-            self.score += 1
-            reward = 10
-            self._place_food()
-        else:
-            self.snake.pop()
-        
-        # 5. update ui and clock
         self._update_ui()
-        self.clock.tick(SPEED)
-        # 6. return game over and score
-        return reward, game_over, self.score
-        """
+        self.clock.tick(GAME_SPEED)
+
+        
+    
+        
+       
+        
+       
+
+       
+        
+
+        #return reward, game_over, self.score
+        return False, self.score
 
 
     def _move(self, action):
-        self.head_pos += self.snake_change
+        x,y = self.head_pos.x + self.snake_change.x, self.head_pos.y + self.snake_change.y
+        self.head_pos = Point(x,y)
         self.snake_list.append(self.head_pos)
         if len(self.snake_list) > self.snake_length:
             del self.snake_list[0]
@@ -195,16 +196,16 @@ class SnakeEnvironment:
             return
         self.already_pressed = True
         if action == Direction.LEFT and self.direction != Direction.RIGHT:  # Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
-            self.snake_change = -SNAKE_BLOCK_SIZE, 0
+            self.snake_change = Point(-SNAKE_BLOCK_SIZE, 0)
             self.direction = Direction.LEFT
         elif action == Direction.RIGHT and self.direction != Direction.LEFT:
-            self.snake_change = SNAKE_BLOCK_SIZE, 0
+            self.snake_change = Point(SNAKE_BLOCK_SIZE, 0)
             self.direction = Direction.RIGHT
         elif action == Direction.UP and self.direction != Direction.DOWN:
-            self.snake_change = 0, -SNAKE_BLOCK_SIZE
+            self.snake_change = Point(0, -SNAKE_BLOCK_SIZE)
             self.direction = Direction.UP
         elif action == Direction.DOWN and self.direction != Direction.UP:
-            self.snake_change = 0, SNAKE_BLOCK_SIZE
+            self.snake_change = Point(0, SNAKE_BLOCK_SIZE)
             self.direction = Direction.DOWN
 
     def ate(self):
@@ -214,3 +215,18 @@ class SnakeEnvironment:
             self.snake_length += 1
 
 
+
+if __name__ == "__main__":
+
+        game = SnakeEnvironment()
+
+        # game loop
+        while True:
+            game_over, score = game.play_step(None)
+
+            if game_over == True:
+                break
+
+        print('Final Score', score)
+
+        pygame.quit()
