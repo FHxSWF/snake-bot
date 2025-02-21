@@ -19,6 +19,7 @@ class Agent:
         )
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate) # Platzhalter später in model.py
         self.criterion = nn.MSELoss() # Platzhalter später in model.py
+        self.gamma = 0.9 # Discount-faktor für Rewards zukünftlich.
 
         # Mögliche Aktionen, die der Agent ausführen kann
         self.actions = ['LEFT', 'RIGHT', 'UP', 'DOWN']
@@ -89,3 +90,35 @@ class Agent:
 
         # Falls die bevorzugte Richtung nicht möglich ist (z.B. wegen Richtungsumkehr), beibehalten der aktuellen Richtung
         return self.get_direction_change(current_direction, snake_block_size)
+
+    def train_step(self, state, action, reward, next_state, done):
+        """
+        Führt einen Trainingsschritt durch, sodass der Agent anhand des Rewards
+        seinen Q-Wert aktualisiert.
+
+        :param state: aktueller Zustand (Liste oder Array).
+        :param action: getätigte Aktion (als String, z. B. 'LEFT').
+        :param reward: erhaltene Belohnung (numerisch).
+        :param next_state: nächster Zustand (Liste oder Array).
+        :param done: Boolean, ob die Episode beendet ist.
+        """
+        state_tensor = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+        next_state_tensor = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
+        reward_tensor = torch.tensor(reward, dtype=torch.float)
+
+        # Aktueller Q-Wert-Vektor
+        pred = self.model(state_tensor)
+        target = pred.clone().detach()
+        with torch.no_grad():
+            next_pred = self.model(next_state_tensor)
+        Q_new = reward_tensor
+        if not done:
+            Q_new = reward_tensor + self.gamma * torch.max(next_pred)
+
+        action_index = self.actions.index(action)
+        target[0][action_index] = Q_new
+
+        loss = self.criterion(pred, target)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
