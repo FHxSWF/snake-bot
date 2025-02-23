@@ -1,14 +1,7 @@
 import pygame
 import random
 
-from enum import Enum
-from agent import Agent
 
-class Direction(Enum):
-    RIGHT = 1
-    LEFT = 2
-    UP = 3
-    DOWN = 4
 
 
 #RELEVANTE VARIABLEN
@@ -93,45 +86,68 @@ def main():
 
     direction = "DOWN" #Aktuelle Richtung
 
-    agent = Agent(input_size=4, hidden_size=24, output_size=4, learning_rate=0.01)
-
     while not game_over:
 
+        # Schleife für den Game-Over-Zustand
+        while game_close:
+            # Startposition und -geschwindigkeit der Schlange
+            snake_x = window_width / 2
+            snake_y = window_height / 2
+            snake_x_change = 0
+            snake_y_change = snake_block_size
 
+            snake_list = []  # Enthält alle Segmente (Positionen) der Schlange
+            snake_length = 1  # Startlänge der Schlange
+
+            game_over = False
+            game_close = False
+
+            direction = "DOWN"  # Aktuelle Richtung
+
+            """
+            screen.fill(color_background)
+            message = font_style.render("Game Over! Drücke Q zum Beenden oder C zum Neustarten", True, color_text)
+            screen.blit(message, (text_x_offset, text_y_offset))
+            pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    game_over = True
+                    game_close = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_q:
+                        game_over = True
+                        game_close = False
+                    if event.key == pygame.K_c:
+                        
+            """
         # Ereignisschleife
         already_pressed = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game_over = True
+            if event.type == pygame.KEYDOWN:
+                if already_pressed:
+                    break
+                already_pressed = True
+                if event.key == pygame.K_LEFT and direction != "RIGHT": #Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
+                    snake_x_change, snake_y_change = -snake_block_size, 0
+                    direction = "LEFT"
+                elif event.key == pygame.K_RIGHT and direction != "LEFT":
+                    snake_x_change, snake_y_change = snake_block_size, 0
+                    direction = "RIGHT"
+                elif event.key == pygame.K_UP and direction != "DOWN":
+                    snake_x_change, snake_y_change = 0, -snake_block_size
+                    direction = "UP"
+                elif event.key == pygame.K_DOWN and direction != "UP":
+                    snake_x_change, snake_y_change = 0, snake_block_size
+                    direction = "DOWN"
 
-        state = [snake_x, snake_y, food_pos[0], food_pos[1]]
-        action = agent.get_action(state)  # Hier wählt der Agent die Aktion
 
-        # Ändere die Richtung basierend auf der vom Agenten gewählten Aktion
-        snake_x_change, snake_y_change = agent.get_direction_change(action, snake_block_size)
 
         # Position der Schlange aktualisieren
         snake_x += snake_x_change
         snake_y += snake_y_change
-
-        next_state = [snake_x, snake_y, food_pos[0], food_pos[1]]
-
-        reward = 0 # für den Agent Belohnung
-        done = False
-        if snake_x >= window_width or snake_x < 0 or snake_y >= window_height or snake_y < 0:
-            reward = -1
-            done = True
-            game_close = True
-        for segment in snake_list[:-1]:
-            if segment == (int(snake_x), int(snake_y)):
-                reward = -1
-                done = True
-                game_close = True
-                break
-        if snake_x == food_pos[0] and snake_y == food_pos[1]:
-            reward = 1
-
-        agent.train_step(state, direction, reward, next_state, done)
 
         screen.blit(pic_background, (0, 0))
         # Futter zeichnen
@@ -176,21 +192,9 @@ def main():
 
         clock.tick(game_speed)
 
-        if game_close:
-            print(f"Game Over! Your Score: {score}")
-
-            #Neustart
-            game_over = False
-            game_close = False
-            snake_x = window_width / 2
-            snake_y = window_height / 2
-            snake_x_change = 0
-            snake_y_change = snake_block_size
-            snake_list = []
-            snake_length = 1
-            food_pos = random.choice(valid_positions)
-
     pygame.quit()
+
+
 
 
 if __name__ == "__main__":
