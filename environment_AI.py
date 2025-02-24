@@ -21,7 +21,7 @@ Point = namedtuple('Point', 'x, y')
 WINDOW_WIDTH = 500
 WINDOW_HEIGHT = 500
 SNAKE_BLOCK_SIZE = 25
-GAME_SPEED = 15
+GAME_SPEED = 20
 TEXT_SIZE = 30
 TEXT_X_OFFSET = WINDOW_WIDTH / 6
 TEXT_Y_OFFSET = WINDOW_HEIGHT / 3
@@ -160,30 +160,22 @@ class SnakeEnvironment:
         self._move(action)  # update the head
 
         # 3. check if game over
-        reward = 0
+        reward = 100
         game_over = False
         if self.is_collision():
             game_over = True
             reward = -10
-            #return reward, game_over, self.score
-            return game_over, self.score
+            return reward, game_over, self.score
+            #return game_over, self.score
         self.ate()
 
         self._update_ui()
         self.clock.tick(GAME_SPEED)
 
         
-    
-        
-       
-        
-       
 
-       
-        
-
-        #return reward, game_over, self.score
-        return False, self.score
+        return reward, game_over, self.score
+        #return False, self.score
 
 
     def _move(self, action):
@@ -195,16 +187,20 @@ class SnakeEnvironment:
         if self.already_pressed:
             return
         self.already_pressed = True
-        if action == Direction.LEFT and self.direction != Direction.RIGHT:  # Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
+        #LEFT
+        if action == [1,0,0,0] and self.direction != Direction.RIGHT:  # Wenn Schlange nach links geht, dann kann sie nicht nach rechts (in entgegengesetzte Richtung)
             self.snake_change = Point(-SNAKE_BLOCK_SIZE, 0)
             self.direction = Direction.LEFT
-        elif action == Direction.RIGHT and self.direction != Direction.LEFT:
+        #RIGHT
+        elif action == [0,1,0,0] and self.direction != Direction.LEFT:
             self.snake_change = Point(SNAKE_BLOCK_SIZE, 0)
             self.direction = Direction.RIGHT
-        elif action == Direction.UP and self.direction != Direction.DOWN:
+        #UP
+        elif action == [0,0,1,0] and self.direction != Direction.DOWN:
             self.snake_change = Point(0, -SNAKE_BLOCK_SIZE)
             self.direction = Direction.UP
-        elif action == Direction.DOWN and self.direction != Direction.UP:
+        #DOWN
+        elif action == [0,0,0,1] and self.direction != Direction.UP:
             self.snake_change = Point(0, SNAKE_BLOCK_SIZE)
             self.direction = Direction.DOWN
 
@@ -213,6 +209,7 @@ class SnakeEnvironment:
         if self.head_pos == self.food:
             self._place_food()
             self.snake_length += 1
+            self
 
 
 

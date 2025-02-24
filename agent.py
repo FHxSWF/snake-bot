@@ -1,11 +1,16 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import random
-import torch.nn.functional as F
+from collections import deque
 
-from environment_AI import Direction
+import numpy as np
 
+import environment_AI
+from environment_AI import *
+from model import *
+from helper import plot
+from environment_AI import Direction, Point
+MAX_MEMORY = 100_000
+BATCH_SIZE = 1000
+LR = 0.001
+MOVES = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]
 
 class Agent:
     def __init__(self, input_size, hidden_size, output_size, learning_rate=0.01):
@@ -16,109 +21,129 @@ class Agent:
         :param output_size: Anzahl der möglichen Aktionen (hier 4 Mölg. LEFT, RIGHT, UP, DOWN).
         :param learning_rate:
         """
-        self.model = nn.Sequential( # Platzhalter später in model.py
-            nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size)
-        )
-        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate) # Platzhalter später in model.py
+
         self.criterion = nn.MSELoss() # Platzhalter später in model.py
         self.gamma = 0.9 # Discount-faktor für Rewards zukünftlich.
+        self.n_games = 0
+        self.epsilon = 0
+        self.model = Linear_QNet(input_size, hidden_size, output_size)
+        self.trainer = SARSA_Trainer(self.model, learning_rate, gamma=self.gamma)
+        self.memory = deque(maxlen=MAX_MEMORY)
 
-        # Mögliche Aktionen, die der Agent ausführen kann
-        self.actions = ['LEFT', 'RIGHT', 'UP', 'DOWN']
 
-    def get_action(self, state, epsilon=0.1):
-        """
-        Wählt eine Aktion basierend auf dem aktuellen Zustand mittels einer epsilon-greedy Strategie,
-        mit einer Softmax-Auswahl für die Aktionen.
-        :param state: Der aktuelle Zustand.
-        :param epsilon: Der Epsilon-Wert für Exploration.
-        :return: Die gewählte Aktion.
-        """
-        # Mit Wahrscheinlichkeit epsilon eine zufällige Aktion (Exploration)
-        if random.random() < epsilon:
-            return random.choice(self.actions)
+    def get_state(self, game):
+        head = game.head_pos
+        tail = game.snake_list[0]
+
+        point_l = Point(head.x - environment_AI.SNAKE_BLOCK_SIZE, head.y)
+        point_r = Point(head.x + environment_AI.SNAKE_BLOCK_SIZE, head.y)
+        point_u = Point(head.x, head.y - environment_AI.SNAKE_BLOCK_SIZE)
+        point_d = Point(head.x, head.y + environment_AI.SNAKE_BLOCK_SIZE)
+
+        dir_l = game.direction == Direction.LEFT
+        dir_r = game.direction == Direction.RIGHT
+        dir_u = game.direction == Direction.UP
+        dir_d = game.direction == Direction.DOWN
+
+        #Eventuell andere Werte wie Kopf o.ä. einsetzen
+        state = [
+            # Danger up
+            (dir_u and game.is_collision(point_u)) ,
+
+            # Danger right
+            (dir_r and game.is_collision(point_r)) ,
+
+            # Danger left
+            (dir_l and game.is_collision(point_l)),
+
+            # Danger down
+            (dir_d and game.is_collision(point_d)),
+
+            # Move direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
+
+            # Food location
+            game.food.x < game.head_pos.x,  # food left
+            game.food.x > game.head_pos.x,  # food right
+            game.food.y < game.head_pos.y,  # food up
+            game.food.y > game.head_pos.y  # food down
+        ]
+        return np.array(state, dtype=int)
+
+    def remember(self, state, action, reward, next_state, action_new, done):
+        self.memory.append((state, action, reward, next_state, action_new, done))
+
+    def train_long_memory(self):
+        if len(self.memory) > BATCH_SIZE:
+            mini_sample = random.sample(self.memory, BATCH_SIZE)  # list of tuples
         else:
-            # Mit Wahrscheinlichkeit 1 - epsilon die Aktion basierend auf den Q-Werten wählen (Exploitation)
-            state_tensor = torch.tensor(state, dtype=torch.float).unsqueeze(0)  # Batch-Dimension hinzufügen
-            with torch.no_grad():
-                q_values = self.model(state_tensor)
+            mini_sample = self.memory
 
-            # Softmax anwenden, um Wahrscheinlichkeiten zu berechnen
-            action_probs = F.softmax(q_values, dim=-1)
+        states, actions, rewards, next_states, action_new, dones = zip(*mini_sample)
+        self.trainer.train_step(states, actions, rewards, next_states, action_new, dones)
 
-            # Zufällige Aktion basierend auf den Wahrscheinlichkeiten auswählen
-            action_index = torch.multinomial(action_probs, 1).item()
-            return self.actions[action_index]
+    def train_short_memory(self, state, action, reward, next_state, action_new, done):
+        self.trainer.train_step(state, action, reward, next_state, action_new, done)
 
-    def get_direction_change(self, action, snake_block_size):
-        """
-        Übersetzt die gewählte Aktion in eine Richtungsänderung, die dann in der Spiel-Logik verwendet werden kann.
-        :param action: was er tun soll (Direction Enum).
-        :param snake_block_size: Größe der Schlange, falls nötig.
-        :return: Tuple mit den Änderungen in x- und y-Richtung.
-        """
-        if action == Direction.LEFT:
-            return -snake_block_size, 0
-        elif action == Direction.RIGHT:
-            return snake_block_size, 0
-        elif action == Direction.UP:
-            return 0, -snake_block_size
-        elif action == Direction.DOWN:
-            return 0, snake_block_size
+    def get_action(self, state):
+        # random moves: tradeoff exploration / exploitation
+        self.epsilon = 80 - self.n_games
+        final_move = [0,0,0,0]
+        if random.randint(0, 200) < self.epsilon:
+            final_move = random.choice(MOVES)
         else:
-            return 0, 0  # Hier falls Fehlerfall
+            state0 = torch.tensor(state, dtype=torch.float)
+            prediction = self.model(state0)
+            move = torch.argmax(prediction).item()
+            print(move)
+            final_move[move] = 1
 
-    def find_food_direction(self, snake_head, food_position, current_direction, snake_block_size):
-        """
-        Bestimmt eine Richtungsänderung, die die Schlange näher an das Futter bringt.
-        Dabei wird versucht, die Differenz zwischen der Position des Schlangenkopfs
-        und der des Futters zu minimieren, ohne in die entgegengesetzte Richtung zu laufen.
-        """
-        dx = food_position[0] - snake_head[0]
-        dy = food_position[1] - snake_head[1]
+        return final_move
 
-        if dx < 0 and current_direction != 'RIGHT':
-            return self.get_direction_change('LEFT', snake_block_size)
-        elif dx > 0 and current_direction != 'LEFT':
-            return self.get_direction_change('RIGHT', snake_block_size)
-        elif dy < 0 and current_direction != 'DOWN':
-            return self.get_direction_change('UP', snake_block_size)
-        elif dy > 0 and current_direction != 'UP':
-            return self.get_direction_change('DOWN', snake_block_size)
 
-        # Wenn keine bessere Richtung vorhanden ist, bleibt der Agent in der aktuellen Richtung
-        return self.get_direction_change(current_direction, snake_block_size)
 
-    def train_step(self, state, action, reward, next_state, done):
-        """
-        Führt einen Trainingsschritt durch, sodass der Agent anhand des Rewards
-        seinen Q-Wert aktualisiert.
+def train():
+    agent = Agent(12,16,4)
+    game = SnakeEnvironment()
+    plot_scores = []
+    plot_mean_scores = []
+    total_score = 0
+    record = 0
 
-        :param state: aktueller Zustand (Liste oder Array).
-        :param action: getätigte Aktion (als String, z. B. 'LEFT').
-        :param reward: erhaltene Belohnung (numerisch).
-        :param next_state: nächster Zustand (Liste oder Array).
-        :param done: Boolean, ob die Episode beendet ist.
-        """
-        state_tensor = torch.tensor(state, dtype=torch.float).unsqueeze(0)
-        next_state_tensor = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
-        reward_tensor = torch.tensor(reward, dtype=torch.float)
+    while True:
+        state_old = agent.get_state(game)
 
-        # Aktueller Q-Wert-Vektor
-        pred = self.model(state_tensor)
-        target = pred.clone().detach()
-        with torch.no_grad():
-            next_pred = self.model(next_state_tensor)
-        Q_new = reward_tensor
-        if not done:
-            Q_new = reward_tensor + self.gamma * torch.max(next_pred)
+        final_move = agent.get_action(state_old)
 
-        action_index = self.actions.index(action)
-        target[0][action_index] = Q_new
+        reward, done, score = game.play_step(final_move)
+        state_new = agent.get_state(game)
 
-        loss = self.criterion(pred, target)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+        action_new = agent.get_action(state_new) if not done else [0, 0, 0, 0]
+        agent.train_short_memory(state_old, final_move, reward, state_new, action_new, done)
+
+        agent.remember(state_old, final_move, reward, state_new, action_new, done)
+
+
+        if done:
+            # train long memory, plot result
+            game.reset()
+            agent.n_games += 1
+            agent.train_long_memory()
+
+            if score > record:
+                record = score
+                agent.model.save()
+
+            print('Game', agent.n_games, 'Score', score, 'Record:', record)
+
+            plot_scores.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_games
+            plot_mean_scores.append(mean_score)
+            plot(plot_scores, plot_mean_scores)
+
+if __name__ == '__main__':
+    train()
