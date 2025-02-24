@@ -18,10 +18,10 @@ class Direction(Enum):
 Point = namedtuple('Point', 'x, y')
 
 # Window and Game variables
-WINDOW_WIDTH = 500
-WINDOW_HEIGHT = 500
+WINDOW_WIDTH = 200
+WINDOW_HEIGHT = 200
 SNAKE_BLOCK_SIZE = 25
-GAME_SPEED = 15
+GAME_SPEED = 20
 TEXT_SIZE = 30
 TEXT_X_OFFSET = WINDOW_WIDTH / 6
 TEXT_Y_OFFSET = WINDOW_HEIGHT / 3

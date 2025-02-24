@@ -1,124 +1,105 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import random
+import numpy as np
+from environment_AI import Direction, Point
 
-class Agent:
-    def __init__(self, input_size, hidden_size, output_size, learning_rate=0.01):
-        """
-        Initialisiert den Agenten.
-        :param input_size: Größe des Zustandsvektors.
-        :param hidden_size: Anzahl der Neuronen im Hidden-Layer.
-        :param output_size: Anzahl der möglichen Aktionen (hier 4 Mölg. LEFT, RIGHT, UP, DOWN).
-        :param learning_rate:
-        """
-        self.model = nn.Sequential( # Platzhalter später in model.py
-            nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size)
-        )
-        self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate) # Platzhalter später in model.py
-        self.criterion = nn.MSELoss() # Platzhalter später in model.py
-        self.gamma = 0.9 # Discount-faktor für Rewards zukünftlich.
+class SnakeAgent:
+    def __init__(self, model, environment, ppo, max_memory=10000, batch_size=64):
+        self.model = model
+        self.environment = environment
+        self.ppo = ppo
+        self.memory = []
+        self.max_memory = max_memory
+        self.batch_size = batch_size
 
-        # Mögliche Aktionen, die der Agent ausführen kann
-        self.actions = ['LEFT', 'RIGHT', 'UP', 'DOWN']
+    def get_state(self):
+        # Zustand als Feature-Vektor definieren
+        head = self.environment.head_pos
+        food = self.environment.food
 
-    def get_action(self, state, epsilon=0.1):
-        """
-        Wählt eine Aktion basierend auf dem aktuellen Zustand mittels einer epsilon-greedy Strategie.
-        :param state:
-        :param epsilon:
-        :return:
-        """
-        # Mit Wahrscheinlichkeit epsilon eine zufällige Aktion (Exploration er soll Testen)
-        if random.random() < epsilon:
-            return random.choice(self.actions)
-        else:
-            # Mit Wahrscheinlichkeit 1 - epsilon die Aktion mit dem höchsten Q-Wert wählen (Exploitation)
-            state_tensor = torch.tensor(state, dtype=torch.float).unsqueeze(0)  # Batch-Dimension hinzufügen
-            with torch.no_grad():
-                q_values = self.model(state_tensor)
-            action_index = torch.argmax(q_values).item()
-            return self.actions[action_index]
+        # Richtung der Schlange (one-hot encoding)
+        direction = [0, 0, 0, 0]  # [left, right, up, down]
+        if self.environment.direction == Direction.LEFT:
+            direction[0] = 1
+        elif self.environment.direction == Direction.RIGHT:
+            direction[1] = 1
+        elif self.environment.direction == Direction.UP:
+            direction[2] = 1
+        elif self.environment.direction == Direction.DOWN:
+            direction[3] = 1
 
-    def get_direction_change(self, action, snake_block_size):
-        """
-        Übersetzt die gewählte Aktion in eine Richtungsänderung, die dann in der Spiel-Logik verwendet werden kann.
-        :param action: was er tun soll.
-        :param snake_block_size: Größe der Schlange, falls nötig.
-        :return: Tuple mit den Änderungen in x- und y-Richtung.
-        """
-        if action == 'LEFT':
-            return -snake_block_size, 0
-        elif action == 'RIGHT':
-            return snake_block_size, 0
-        elif action == 'UP':
-            return 0, -snake_block_size
-        elif action == 'DOWN':
-            return 0, snake_block_size
-        else:
-            return 0, 0  # Hier falls Fehlerfall
+        # Gefahr in nächster Bewegung
+        danger = [
+            self.environment.is_collision(Point(head.x - 25, head.y)),  # Links
+            self.environment.is_collision(Point(head.x + 25, head.y)),  # Rechts
+            self.environment.is_collision(Point(head.x, head.y - 25)),  # Oben
+            self.environment.is_collision(Point(head.x, head.y + 25)),  # Unten
+        ]
 
-    def find_food_direction(self, snake_head, food_position, current_direction, snake_block_size):
-        """
-        Bestimmt eine Richtungsänderung, die die Schlange näher an das Futter bringt.
-        Dabei wird versucht, die Differenz zwischen der Position des Schlangenkopfs
-        und der des Futters zu minimieren, ohne in die entgegengesetzte Richtung zu laufen.
+        # Entfernung zum Apfel (normalisiert)
+        apple_direction = [
+            food.x < head.x,  # Apfel links
+            food.x > head.x,  # Apfel rechts
+            food.y < head.y,  # Apfel oben
+            food.y > head.y   # Apfel unten
+        ]
 
-        :param snake_head: Tuple (x, y) der aktuellen Position des Schlangenkopfs.
-        :param food_position: Tuple (x, y) der Position des Futters.
-        :param current_direction: Aktuelle Richtung als String ('LEFT', 'RIGHT', 'UP', 'DOWN').
-        :param snake_block_size: Größe eines Schlangensegments.
-        :return: Tuple (x_change, y_change) der Bewegungsänderung, um in Richtung Futter zu gelangen.
-        """
-        # Differenz in x- und y-Richtung
-        dx = food_position[0] - snake_head[0]
-        dy = food_position[1] - snake_head[1]
+        state = np.array(direction + danger + apple_direction, dtype=int)
+        return state
 
-        # Priorität: Bewege dich in die Richtung, in der die Distanz größer ist
-        if abs(dx) > abs(dy):
-            if dx < 0 and current_direction != 'RIGHT':
-                return self.get_direction_change('LEFT', snake_block_size)
-            elif dx > 0 and current_direction != 'LEFT':
-                return self.get_direction_change('RIGHT', snake_block_size)
-        else:
-            if dy < 0 and current_direction != 'DOWN':
-                return self.get_direction_change('UP', snake_block_size)
-            elif dy > 0 and current_direction != 'UP':
-                return self.get_direction_change('DOWN', snake_block_size)
+    def select_action(self, state):
+        state = torch.tensor(state, dtype=torch.float)
+        output = self.model(state)
+        action_probs = torch.softmax(output, dim=-1)
+        dist = torch.distributions.Categorical(action_probs)
+        action = dist.sample()
+        return action.item(), dist.log_prob(action)
 
-        # Falls die bevorzugte Richtung nicht möglich ist (z.B. wegen Richtungsumkehr), beibehalten der aktuellen Richtung
-        return self.get_direction_change(current_direction, snake_block_size)
+    def remember(self, state, action, reward, next_state, done, log_prob):
+        if len(self.memory) >= self.max_memory:
+            self.memory.pop(0)
+        self.memory.append((state, action, reward, next_state, done, log_prob))
 
-    def train_step(self, state, action, reward, next_state, done):
-        """
-        Führt einen Trainingsschritt durch, sodass der Agent anhand des Rewards
-        seinen Q-Wert aktualisiert.
+    def train_long_memory(self):
+        if len(self.memory) < self.batch_size:
+            return
 
-        :param state: aktueller Zustand (Liste oder Array).
-        :param action: getätigte Aktion (als String, z. B. 'LEFT').
-        :param reward: erhaltene Belohnung (numerisch).
-        :param next_state: nächster Zustand (Liste oder Array).
-        :param done: Boolean, ob die Episode beendet ist.
-        """
-        state_tensor = torch.tensor(state, dtype=torch.float).unsqueeze(0)
-        next_state_tensor = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
-        reward_tensor = torch.tensor(reward, dtype=torch.float)
+        batch = np.random.choice(self.memory, self.batch_size, replace=False)
+        states, actions, rewards, next_states, dones, log_probs = zip(*batch)
 
-        # Aktueller Q-Wert-Vektor
-        pred = self.model(state_tensor)
-        target = pred.clone().detach()
-        with torch.no_grad():
-            next_pred = self.model(next_state_tensor)
-        Q_new = reward_tensor
-        if not done:
-            Q_new = reward_tensor + self.gamma * torch.max(next_pred)
+        self.ppo.train_step(states, actions, rewards, next_states, dones, log_probs)
 
-        action_index = self.actions.index(action)
-        target[0][action_index] = Q_new
+    def train(self, episodes=1000):
+        for episode in range(episodes):
+            self.environment.reset()
+            state = self.get_state()
+            done = False
+            total_reward = 0
 
-        loss = self.criterion(pred, target)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+            while not done:
+                action, log_prob = self.select_action(state)
+                game_over, score = self.environment.play_step(action)
+
+                reward = 1 if self.environment.head_pos == self.environment.food else -1 if game_over else 0
+                next_state = self.get_state()
+                self.remember(state, action, reward, next_state, game_over, log_prob)
+
+                state = next_state
+                total_reward += reward
+
+                if game_over:
+                    break
+
+            self.train_long_memory()
+            print(f"Episode {episode+1}/{episodes}, Score: {score}, Reward: {total_reward}")
+
+
+if __name__ == "__main__":
+    from environment_AI import SnakeEnvironment
+    from model import PPO, LinearNetwork
+
+    model = LinearNetwork(12, 4)
+    environment = SnakeEnvironment()
+    ppo = PPO(model, lr=0.001, gamma=0.99)
+    agent = SnakeAgent(model, environment, ppo)
+
+    agent.train(episodes=1000)

@@ -30,13 +30,13 @@ SPEED = 10000
 
 
 class SnakeGameAI:
-
-    def __init__(self, w=640, h=480):
+    def __init__(self, w=640, h=480, render=True):  # Neuer Parameter `render`
         self.w = w
         self.h = h
-        # init display
-        self.display = pygame.display.set_mode((self.w, self.h))
-        pygame.display.set_caption('Snake')
+        self.render = render  # Rendering aktivieren/deaktivieren
+        if self.render:
+            self.display = pygame.display.set_mode((self.w, self.h))
+            pygame.display.set_caption('Snake')
         self.clock = pygame.time.Clock()
         self.reset()
 
@@ -108,15 +108,14 @@ class SnakeGameAI:
         return False
 
     def _update_ui(self):
-        self.display.fill(BLACK)
+        if not self.render:  # Überspringe das Rendering, wenn es deaktiviert ist
+            return
 
+        self.display.fill(BLACK)
         for pt in self.snake:
             pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
             pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
-
         pygame.draw.rect(self.display, RED, pygame.Rect(self.food.x, self.food.y, BLOCK_SIZE, BLOCK_SIZE))
-
-
         pygame.display.flip()
 
     def _move(self, action):

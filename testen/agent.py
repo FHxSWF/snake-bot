@@ -3,7 +3,7 @@ import random
 import numpy as np
 from collections import deque
 from game import SnakeGameAI, Direction, Point
-from model import Linear_QNet, SARSA_Trainer
+from model import DQN_Trainer, Linear_QNet
 from helper import plot
 
 MAX_MEMORY = 100_000
@@ -18,7 +18,7 @@ class Agent:
         self.gamma = 0.9  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)  # popleft()
         self.model = Linear_QNet(11, 256, 3)
-        self.trainer = SARSA_Trainer(self.model, lr=LR, gamma=self.gamma)
+        self.trainer = DQN_Trainer(self.model, lr=LR, gamma=self.gamma)  # Geändert
 
     def get_state(self, game):
         head = game.snake[0]
@@ -53,8 +53,8 @@ class Agent:
         ]
         return np.array(state, dtype=int)
 
-    def remember(self, state, action, reward, next_state, next_action, done):
-        self.memory.append((state, action, reward, next_state, next_action, done))
+    def remember(self, state, action, reward, next_state, done):  # Vereinfacht
+        self.memory.append((state, action, reward, next_state, done))
 
     def train_long_memory(self):
         if len(self.memory) > BATCH_SIZE:
@@ -62,11 +62,11 @@ class Agent:
         else:
             mini_sample = self.memory
 
-        states, actions, rewards, next_states, next_actions, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, next_actions, dones)
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
+        self.trainer.train_step(states, actions, rewards, next_states, dones)  # Geändert
 
-    def train_short_memory(self, state, action, reward, next_state, next_action, done):
-        self.trainer.train_step(state, action, reward, next_state, next_action, done)
+    def train_short_memory(self, state, action, reward, next_state, done):
+        self.trainer.train_step([state], [action], [reward], [next_state], [done])  # Geändert
 
     def get_action(self, state):
         self.epsilon = 80 - self.n_games
@@ -83,21 +83,20 @@ class Agent:
 
 def train():
     agent = Agent()
-    game = SnakeGameAI()
+    game = SnakeGameAI(render=False)
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
     record = 0
 
-    while True:
+    while True:       
         state_old = agent.get_state(game)
-        action_old = agent.get_action(state_old)
-        reward, done, score = game.play_step(action_old)
+        action = agent.get_action(state_old)  # Epsilon-greedy bleibt
+        reward, done, score = game.play_step(action)
         state_new = agent.get_state(game)
-        action_new = agent.get_action(state_new) if not done else [0, 0, 0]
 
-        agent.train_short_memory(state_old, action_old, reward, state_new, action_new, done)
-        agent.remember(state_old, action_old, reward, state_new, action_new, done)
+        agent.train_short_memory(state_old, action, reward, state_new, done)
+        agent.remember(state_old, action, reward, state_new, done)
 
         if done:
             game.reset()

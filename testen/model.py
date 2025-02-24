@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,40 +26,42 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(), file_name)
 
 
-class SARSA_Trainer:
+# model.py (ersetzte SARSA_Trainer durch diese Klasse)
+class DQN_Trainer:
     def __init__(self, model, lr, gamma):
         self.lr = lr
         self.gamma = gamma
         self.model = model
-        self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
+        self.target_model = Linear_QNet(model.linear1.in_features, model.linear1.out_features, model.linear2.out_features)
+        self.target_model.load_state_dict(model.state_dict())
+        self.optimizer = optim.AdamW(model.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
+        self.update_target_every = 100  # Target Network Update-Intervall
+        self.update_counter = 0
 
-    def train_step(self, state, action, reward, next_state, next_action, done):
-        state = torch.tensor(state, dtype=torch.float)
-        next_state = torch.tensor(next_state, dtype=torch.float)
-        action = torch.tensor(action, dtype=torch.long)
-        next_action = torch.tensor(next_action, dtype=torch.long)
-        reward = torch.tensor(reward, dtype=torch.float)
+    def train_step(self, states, actions, rewards, next_states, dones):
+        # Konvertiere Listen zu Numpy-Arrays und dann zu Tensoren
+        states = torch.tensor(np.array(states), dtype=torch.float)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float)
+        rewards = torch.tensor(np.array(rewards), dtype=torch.float)
+        actions = torch.tensor(np.array(actions), dtype=torch.float)  # Konvertiere actions zu Tensor
+        dones = torch.tensor(np.array(dones), dtype=torch.float)
 
-        if len(state.shape) == 1:
-            state = torch.unsqueeze(state, 0)
-            next_state = torch.unsqueeze(next_state, 0)
-            action = torch.unsqueeze(action, 0)
-            next_action = torch.unsqueeze(next_action, 0)
-            reward = torch.unsqueeze(reward, 0)
-            done = (done,)
+        # Berechne Q-Zielwerte mit Target Network
+        with torch.no_grad():
+            q_next = self.target_model(next_states).max(1)[0]
+            q_target = rewards + self.gamma * q_next * (1 - dones)
 
-        pred = self.model(state)
-        target = pred.clone()
+        # Berechne Q-Vorhersagen
+        q_pred = self.model(states).gather(1, torch.argmax(actions, dim=1).unsqueeze(1))
 
-        for idx in range(len(done)):
-            Q_new = reward[idx]
-            if not done[idx]:
-                Q_new = reward[idx] + self.gamma * self.model(next_state[idx])[torch.argmax(next_action[idx]).item()]
-
-            target[idx][torch.argmax(action[idx]).item()] = Q_new
-
+        # Backpropagation
         self.optimizer.zero_grad()
-        loss = self.criterion(target, pred)
+        loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.backward()
         self.optimizer.step()
+
+        # Aktualisiere Target Network in regelmäßigen Abständen
+        self.update_counter += 1
+        if self.update_counter % self.update_target_every == 0:
+            self.target_model.load_state_dict(self.model.state_dict())
