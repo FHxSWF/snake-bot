@@ -167,6 +167,19 @@ class SnakeEnvironment:
             reward = -100  # Höhere Bestrafung für Kollision
             return reward, game_over, self.score
 
+        # Strafe für Nähe zur Wand
+        MARGIN = 2 * SNAKE_BLOCK_SIZE  # Kritischer Bereich am Rand
+        if (self.head_pos.x < MARGIN or self.head_pos.x > WINDOW_WIDTH - MARGIN or
+                self.head_pos.y < MARGIN or self.head_pos.y > WINDOW_HEIGHT - MARGIN):
+            reward -= 5  # Stärkere Strafe für Nähe zur Wand
+
+        # Strafe für Nähe zum eigenen Körper
+        for segment in self.snake_list[:-1]:  # Letztes Segment (Kopf) ignorieren
+             if abs(self.head_pos.x - segment.x) < SNAKE_BLOCK_SIZE * 2 and abs(
+                    self.head_pos.y - segment.y) < SNAKE_BLOCK_SIZE * 2:
+                reward -= 2  # Mäßige Strafe für Nähe zum eigenen Körper
+                break  # Nur einmal bestrafen pro Schritt
+
         # 4. Nahrung gefressen?
         if self.head_pos == self.food:
             reward = 100  # Bonus für Essen

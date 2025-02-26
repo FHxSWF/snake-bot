@@ -24,7 +24,7 @@ class Agent:
         self.criterion = nn.MSELoss()
         self.gamma = 0.9
         self.n_games = 0
-        self.epsilon = 80  # Erhöht für mehr Exploration
+        self.epsilon = max(1, 80 - self.n_games * 0.3)  # Langsamerer Abfall
         self.model = Linear_QNet(input_size, hidden_size, output_size)
         self.trainer = SARSA_Trainer(self.model, learning_rate, gamma=self.gamma)
         self.memory = deque(maxlen=MAX_MEMORY)
