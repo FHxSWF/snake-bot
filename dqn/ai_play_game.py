@@ -61,5 +61,5 @@ def play_game(model_path):
 
 
 if __name__ == "__main__":
-    play_game(r"model/modelDQNfirst.pth")
+    play_game(r"model/modelDQNsecond.pth")
 
