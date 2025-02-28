@@ -8,6 +8,14 @@ from environment_AI import SnakeEnvironment, Point, Direction
 
 
 def load_model(model_path, input_size, hidden_size, output_size):
+    """
+    Lädt das gespeicherte neuronale Netzmodell aus einer Datei.
+    :param model_path: Pfad zur gespeicherten Modelldatei (.pth)
+    :param input_size: Anzahl der Eingabeneuronen (Zustandsmerkmale)
+    :param hidden_size: Anzahl der Neuronen in der versteckten Schicht
+    :param output_size: Anzahl der Ausgabeneuronen (mögliche Aktionen)
+    :return: ein Agent-Objekt mit dem geladenen Modell
+    """
     model = Agent(input_size, hidden_size, output_size)
     model.model.load_state_dict(torch.load(model_path))
     model.model.eval()
@@ -15,6 +23,11 @@ def load_model(model_path, input_size, hidden_size, output_size):
 
 
 def get_state(game):
+    """
+    Erstellt den aktuellen Zustand des Spiels als numerisches Array für das neuronale Netz.
+    :param game: Instanz der Snake-Umgebung
+    :return: Zustandsvektor als Numpy-Array
+    """
     head = game.head_pos
 
     point_l = Point(head.x - environment_AI.SNAKE_BLOCK_SIZE, head.y)
@@ -44,8 +57,11 @@ def get_state(game):
 
     return np.array(state, dtype=int)
 
-
 def play_game(model_path):
+    """
+    Lässt das geladene Modell das Snake-Spiel spielen.
+    :param model_path: Pfad zur gespeicherten Modelldatei (.pth)
+    """
     game = SnakeEnvironment()
     model = load_model(model_path, input_size=12, hidden_size=32, output_size=4)
 

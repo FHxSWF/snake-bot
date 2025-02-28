@@ -82,7 +82,9 @@ class SnakeEnvironment:
         self._place_food()
 
     def reset(self):
-        # init game state
+        """
+        Setzt das Spiel zurück.
+        """
         self.already_pressed = False
         self.head_pos = Point(int(WINDOW_WIDTH / 2), int(WINDOW_HEIGHT / 2))
         self.snake_change = Point(0, SNAKE_BLOCK_SIZE)
@@ -98,11 +100,17 @@ class SnakeEnvironment:
         self._place_food()
 
     def _place_food(self):
+        """
+        Platziert das Essen an einer zufälligen Position, die nicht von der Schlange belegt ist.
+        """
         valid_positions: set[Point] = ALL_POSITIONS - set(self.snake_list)
         x,y = random.choice(tuple(valid_positions)) if valid_positions else None
         self.food = Point(x,y)
 
     def is_collision(self, pt=None):
+        """
+        Überprüft, ob die Schlange eine Wand oder sich selbst getroffen hat.
+        """
         if pt is None:
             pt = self.head_pos
         hindernis = MAP_BORDER.copy()
@@ -114,6 +122,9 @@ class SnakeEnvironment:
         return False
 
     def _update_ui(self):
+        """
+        Zeichnet das Spielfeld, die Schlange und das Essen neu.
+        """
         self.screen.blit(PIC_BACKGROUND, (0, 0))
         # Futter zeichnen
         self.screen.blit(PIC_APPLE, self.food)
@@ -131,6 +142,16 @@ class SnakeEnvironment:
         pygame.display.update()
 
     def play_step(self, action):
+        """
+        Führt einen Spielschritt aus und gibt Belohnung, Game-Over-Status und Punktestand zurück.
+        :param action: eine Liste mit vier Werten [links, rechts, hoch, runter],
+        wobei genau ein Wert 1 ist und die Richtung angibt, in die sich die Schlange bewegen soll.
+        Beispiel: [1,0,0,0] bedeutet Bewegung nach links.
+        :return: Ein Tupel (reward, game_over, score):
+             - reward (float): Belohnung oder Bestrafung für den Schritt.
+             - game_over (bool): gibt an, ob das Spiel vorbei ist.
+             - score (int): der aktuelle Punktestand.
+        """
         self.already_pressed = False
 
         # 1. collect user input
@@ -200,8 +221,11 @@ class SnakeEnvironment:
 
         return reward, game_over, self.score
 
-
     def _move(self, action):
+        """
+
+        :param action:
+        """
         x,y = self.head_pos.x + self.snake_change.x, self.head_pos.y + self.snake_change.y
         self.head_pos = Point(x,y)
         self.snake_list.append(self.head_pos)
@@ -228,11 +252,15 @@ class SnakeEnvironment:
             self.direction = Direction.DOWN
 
     def ate(self):
-        # Prüfen, ob Futter gefressen wurde
+        """
+        Bewegt die Schlange in die angegebene Richtung basierend auf der Aktion.
+        :param action: Eine Liste mit vier Werten [links, rechts, hoch, runter], wobei genau ein Wert 1 ist und die
+        Richtung angibt, in die sich die Schlange bewegen soll.
+        Beispiel: [1,0,0,0] bedeutet Bewegung nach links.
+        """
         if self.head_pos == self.food:
             self._place_food()
             self.snake_length += 1
-            self
 
 
 
