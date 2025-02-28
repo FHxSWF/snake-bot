@@ -26,7 +26,6 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(), file_name)
 
 
-# model.py (ersetzte SARSA_Trainer durch diese Klasse)
 class DQN_Trainer:
     def __init__(self, model, lr, gamma):
         self.lr = lr
@@ -46,6 +45,12 @@ class DQN_Trainer:
         rewards = torch.tensor(np.array(rewards), dtype=torch.float)
         actions = torch.tensor(np.array(actions), dtype=torch.float)  # Konvertiere actions zu Tensor
         dones = torch.tensor(np.array(dones), dtype=torch.float)
+
+        # Überprüfe die Form der Tensoren
+        if len(states.shape) == 1:
+            states = states.unsqueeze(0)  # Füge eine Batch-Dimension hinzu
+        if len(next_states.shape) == 1:
+            next_states = next_states.unsqueeze(0)  # Füge eine Batch-Dimension hinzu
 
         # Berechne Q-Zielwerte mit Target Network
         with torch.no_grad():

@@ -8,14 +8,14 @@ from helper import plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001
+LR = 0.01
 
 
 class Agent:
     def __init__(self):
         self.n_games = 0
-        self.epsilon = 0  # randomness
-        self.gamma = 0.9  # discount rate
+        self.epsilon = 0.0  # randomness
+        self.gamma = 0.90  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)  # popleft()
         self.model = Linear_QNet(11, 256, 3)
         self.trainer = DQN_Trainer(self.model, lr=LR, gamma=self.gamma)  # Geändert
@@ -83,7 +83,7 @@ class Agent:
 
 def train():
     agent = Agent()
-    game = SnakeGameAI(render=False)
+    game = SnakeGameAI(render=True)
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
