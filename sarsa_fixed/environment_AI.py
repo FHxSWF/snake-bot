@@ -33,10 +33,10 @@ FONT_STYLE = pygame.font.SysFont(None, TEXT_SIZE)
 COLOR_TEXT = (255, 255, 255)
 
 # Bilder der Schlange laden
-PIC_HEAD = pygame.image.load('assets/snake_head.png')
-PIC_BODY = pygame.image.load('assets/snake_body.png')
-PIC_APPLE = pygame.image.load('assets/apple.png')
-PIC_BACKGROUND = pygame.image.load('assets/snake_background.png')
+PIC_HEAD = pygame.image.load('../assets/snake_head.png')
+PIC_BODY = pygame.image.load('../assets/snake_body.png')
+PIC_APPLE = pygame.image.load('../assets/apple.png')
+PIC_BACKGROUND = pygame.image.load('../assets/snake_background.png')
 
 #All Positions
 ALL_POSITIONS = set()
