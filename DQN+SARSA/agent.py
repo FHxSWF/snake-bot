@@ -20,6 +20,10 @@ class Agent:
     def __init__(self, input_size, hidden_size, output_size, learning_rate=0.01):
         """
         Initialisiert den Agenten.
+        :param input_size: Anzahl der Eingangsneuronen (Zustandsmerkmale)
+        :param hidden_size: Anzahl der Neuronen in der versteckten Schicht
+        :param output_size: Anzahl der Ausgangsneuronen (mögliche Aktionen)
+        :param learning_rate: Lernrate für den Optimierer
         """
         self.criterion = nn.MSELoss()
         self.gamma = 0.9
@@ -30,6 +34,11 @@ class Agent:
         self.memory = deque(maxlen=MAX_MEMORY)
 
     def get_state(self, game):
+        """
+        Erstellt den Zustand des Spiels basierend auf der aktuellen Umgebung.
+        :param game: Instanz des Spiels
+        :return: Zustandsvektor der als Numpy-Array zurückgegeben wird
+        """
         head = game.head_pos
 
         point_l = Point(head.x - environment_AI.SNAKE_BLOCK_SIZE, head.y)
@@ -60,11 +69,25 @@ class Agent:
         return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, action_new, done):
+        """
+        Die Methode remember speichert eine Erfahrung im Replay-Speicher (Replay Buffer),
+        die später für das Training vom Agenten verwendet werden kann.
+        :param state: der aktuelle Zustand des Spiels.
+        :param action: die ausgeführte Aktion.
+        :param reward: die erhaltene Belohnung für die Aktion.
+        :param next_state: der Zustand nach der ausgeführten Aktion.
+        :param action_new: die nächste Aktion (für SARSA).
+        :param done: gibt an, ob die Episode beendet wurde.
+        """
         self.memory.append((state, action, reward, next_state, action_new, done))
         print(f"Remember: State: {state}, Action: {action}, Reward: {reward}, Next State: {next_state}, Done: {done}")
 
     def get_action(self, state):
-        """ Entscheidet die nächste Bewegung """
+        """
+        Entscheidet die nächste Bewegung für den Agenten basierend auf einem
+        greedy-Ansatz, um eine Balance zwischen Exploration und Exploitation zu halten.
+        :param state: ist die aktuelle Repräsentation der Umgebung die dem Agenten zur Verfügung steht.
+        """
         self.epsilon = max(1, 80 - self.n_games * 0.5)  # Langsamer Abfall für bessere Exploration
         final_move = [0, 0, 0, 0]
 
@@ -81,9 +104,21 @@ class Agent:
         return final_move
 
     def train_short_memory(self, state, action, reward, next_state, action_new, done):
+        """
+        Trainiert das Modell mit einer einzelnen Erfahrung (On-Policy Learning).
+        :param state: der vorherige Zustand der Umgebung.
+        :param action: die vom Agenten ausgeführte Aktion.
+        :param reward: die erhaltene Belohnung für diese Aktion.
+        :param next_state: der neue Zustand nach der Aktion.
+        :param action_new: die nächste geplante Aktion.
+        :param done: gibt an, ob die Episode beendet ist.
+        """
         self.trainer.train_step(state, action, reward, next_state, action_new, done)
 
     def train_long_memory(self):
+        """
+        Trainiert das Modell mit einer Stichprobe aus dem Replay-Speicher (Off-Policy Learning).
+        """
         if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
         else:
@@ -94,6 +129,12 @@ class Agent:
 
 
 def train():
+    """
+    Führt das Training des Agenten in einer Endlosschleife aus.
+    Der Agent spielt eine Runde, trainiert das Modell und speichert die Erfahrungen, um sie später in ai_play_game.py
+    zu verwenden.
+    Zudem wird der aktuelle Spielstand überwacht und ggf. der Highscore gespeichert.
+    """
     agent = Agent(12, 32, 4)
     game = SnakeEnvironment()
     plot_scores = []

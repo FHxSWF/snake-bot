@@ -21,7 +21,7 @@ Point = namedtuple('Point', 'x, y')
 WINDOW_WIDTH = 500
 WINDOW_HEIGHT = 500
 SNAKE_BLOCK_SIZE = 25
-GAME_SPEED = 10000
+GAME_SPEED = 30
 TEXT_SIZE = 30
 TEXT_X_OFFSET = WINDOW_WIDTH / 6
 TEXT_Y_OFFSET = WINDOW_HEIGHT / 3
@@ -33,10 +33,10 @@ FONT_STYLE = pygame.font.SysFont(None, TEXT_SIZE)
 COLOR_TEXT = (255, 255, 255)
 
 # Bilder der Schlange laden
-PIC_HEAD = pygame.image.load('assets/snake_head.png')
-PIC_BODY = pygame.image.load('assets/snake_body.png')
-PIC_APPLE = pygame.image.load('assets/apple.png')
-PIC_BACKGROUND = pygame.image.load('assets/snake_background.png')
+PIC_HEAD = pygame.image.load('../assets/snake_head.png')
+PIC_BODY = pygame.image.load('../assets/snake_body.png')
+PIC_APPLE = pygame.image.load('../assets/apple.png')
+PIC_BACKGROUND = pygame.image.load('../assets/snake_background.png')
 
 #All Positions
 ALL_POSITIONS = set()
@@ -57,8 +57,9 @@ for y in range(WINDOW_HEIGHT):
         MAP_BORDER.append(Point(WINDOW_HEIGHT + SNAKE_BLOCK_SIZE, y))
 
 class SnakeEnvironment:
+    """Repräsentiert die Snake-Spielumgebung."""
     def __init__(self):
-
+        """Initialisiert das Spiel, das Fenster und den Spielstatus."""
         # init display
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Snake environment")
@@ -82,6 +83,7 @@ class SnakeEnvironment:
         self._place_food()
 
     def reset(self):
+        """Setzt das Spiel zurück auf den Startzustand."""
         # init game state
         self.already_pressed = False
         self.head_pos = Point(int(WINDOW_WIDTH / 2), int(WINDOW_HEIGHT / 2))
@@ -98,11 +100,13 @@ class SnakeEnvironment:
         self._place_food()
 
     def _place_food(self):
+        """Platziert das Futter an einer zufälligen Position auf dem Spielfeld."""
         valid_positions: set[Point] = ALL_POSITIONS - set(self.snake_list)
         x,y = random.choice(tuple(valid_positions)) if valid_positions else None
         self.food = Point(x,y)
 
     def is_collision(self, pt=None):
+        """Überprüft, ob die Schlange mit der Wand oder sich selbst kollidiert."""
         if pt is None:
             pt = self.head_pos
         hindernis = MAP_BORDER.copy()
@@ -114,6 +118,7 @@ class SnakeEnvironment:
         return False
 
     def _update_ui(self):
+        """Aktualisiert die Spieloberfläche mit der Schlange, dem Futter und dem Punktestand."""
         self.screen.blit(PIC_BACKGROUND, (0, 0))
         # Futter zeichnen
         self.screen.blit(PIC_APPLE, self.food)
@@ -131,6 +136,7 @@ class SnakeEnvironment:
         pygame.display.update()
 
     def play_step(self, action):
+        """Führt einen Spielschritt aus und gibt eine Belohnung zurück."""
         self.already_pressed = False
 
         # 1. collect user input
@@ -138,47 +144,17 @@ class SnakeEnvironment:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if event.type == pygame.KEYDOWN:
-                if self.already_pressed:
-                    break
-                self.already_pressed = True
-                if event.key == pygame.K_LEFT and self.direction != "RIGHT":
-                    self.snake_change = Point(-SNAKE_BLOCK_SIZE, 0)
-                    self.direction = "LEFT"
-                elif event.key == pygame.K_RIGHT and self.direction != "LEFT":
-                    self.snake_change = Point(SNAKE_BLOCK_SIZE, 0)
-                    self.direction = "RIGHT"
-                elif event.key == pygame.K_UP and self.direction != "DOWN":
-                    self.snake_change = Point(0, -SNAKE_BLOCK_SIZE)
-                    self.direction = "UP"
-                elif event.key == pygame.K_DOWN and self.direction != "UP":
-                    self.snake_change = Point(0, SNAKE_BLOCK_SIZE)
-                    self.direction = "DOWN"
 
-        # 2. move
+
         self._move(action)
 
-        # 3. check if game over
         game_over = False
-        reward = -0.1  # Jede Bewegung kostet -1 Punkt
+        reward = -0.1  # Jede Bewegung kostet -0.1 Punkt
 
         if self.is_collision():
             game_over = True
             reward = -100  # Höhere Bestrafung für Kollision
             return reward, game_over, self.score
-
-        # Strafe für Nähe zur Wand
-        MARGIN = 2 * SNAKE_BLOCK_SIZE  # Kritischer Bereich am Rand
-        if (self.head_pos.x < MARGIN or self.head_pos.x > WINDOW_WIDTH - MARGIN or
-                self.head_pos.y < MARGIN or self.head_pos.y > WINDOW_HEIGHT - MARGIN):
-            reward -= 5  # Stärkere Strafe für Nähe zur Wand
-
-        # Strafe für Nähe zum eigenen Körper
-        for segment in self.snake_list[:-1]:  # Letztes Segment (Kopf) ignorieren
-             if abs(self.head_pos.x - segment.x) < SNAKE_BLOCK_SIZE * 2 and abs(
-                    self.head_pos.y - segment.y) < SNAKE_BLOCK_SIZE * 2:
-                reward -= 2  # Mäßige Strafe für Nähe zum eigenen Körper
-                break  # Nur einmal bestrafen pro Schritt
 
         # 4. Nahrung gefressen?
         if self.head_pos == self.food:
@@ -202,6 +178,7 @@ class SnakeEnvironment:
 
 
     def _move(self, action):
+        """Bewegt die Schlange in die gewählte Richtung."""
         x,y = self.head_pos.x + self.snake_change.x, self.head_pos.y + self.snake_change.y
         self.head_pos = Point(x,y)
         self.snake_list.append(self.head_pos)
@@ -232,7 +209,7 @@ class SnakeEnvironment:
         if self.head_pos == self.food:
             self._place_food()
             self.snake_length += 1
-            self
+
 
 
 

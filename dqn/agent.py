@@ -1,7 +1,5 @@
 from collections import deque
 
-import numpy as np
-
 import environment_AI
 from environment_AI import *
 from model import *

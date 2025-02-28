@@ -16,7 +16,7 @@ class Linear_QNet(nn.Module):
         x = self.linear2(x)
         return x
 
-    def save(self, file_name='model.pth'):
+    def save(self, file_name='modelDQN+SARSA.pth'):
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -39,22 +39,27 @@ class SARSA_Trainer:
         action = torch.tensor(action, dtype=torch.long)
         next_action = torch.tensor(next_action, dtype=torch.long)
         reward = torch.tensor(reward, dtype=torch.float)
+        done = torch.tensor(done, dtype=torch.bool)  # Korrekte Handhabung von `done`
 
         if len(state.shape) == 1:
-            state = torch.unsqueeze(state, 0)
-            next_state = torch.unsqueeze(next_state, 0)
-            action = torch.unsqueeze(action, 0)
-            next_action = torch.unsqueeze(next_action, 0)
-            reward = torch.unsqueeze(reward, 0)
-            done = (done,)
+            state = state.unsqueeze(0)
+            next_state = next_state.unsqueeze(0)
+            action = action.unsqueeze(0)
+            next_action = next_action.unsqueeze(0)
+            reward = reward.unsqueeze(0)
+            done = done.unsqueeze(0)
 
         pred = self.model(state)
         target = pred.clone()
 
+        with torch.no_grad():  # Kein Backpropagation für den nächsten Zustand
+            next_q_values = self.model(next_state).detach()  # Keine Gradienten für zukünftige Q-Werte
+
         for idx in range(len(done)):
             Q_new = reward[idx]
-            if not done[idx]:
-                Q_new = reward[idx] + self.gamma * self.model(next_state[idx])[torch.argmax(next_action[idx]).item()]
+            if not done[idx]:  # Nur berechnen, wenn das Spiel nicht vorbei ist
+                next_action_idx = torch.argmax(next_action[idx]).item()
+                Q_new += self.gamma * next_q_values[idx][next_action_idx]
 
             target[idx][torch.argmax(action[idx]).item()] = Q_new
 
@@ -62,3 +67,4 @@ class SARSA_Trainer:
         loss = self.criterion(target, pred)
         loss.backward()
         self.optimizer.step()
+
