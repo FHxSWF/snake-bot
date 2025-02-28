@@ -21,7 +21,7 @@ Point = namedtuple('Point', 'x, y')
 WINDOW_WIDTH = 500
 WINDOW_HEIGHT = 500
 SNAKE_BLOCK_SIZE = 25
-GAME_SPEED = 10000
+GAME_SPEED = 30
 TEXT_SIZE = 30
 TEXT_X_OFFSET = WINDOW_WIDTH / 6
 TEXT_Y_OFFSET = WINDOW_HEIGHT / 3
@@ -223,8 +223,10 @@ class SnakeEnvironment:
 
     def _move(self, action):
         """
-
-        :param action:
+        Bewegt die Schlange basierend auf der gegebenen Aktion.
+        :param action: eine Liste mit vier Werten [links, rechts, hoch, runter], wobei genau ein Wert 1 ist und die
+        Richtung angibt, in die sich die Schlange bewegen soll.
+        Beispiel: [1,0,0,0] bedeutet Bewegung nach links.
         """
         x,y = self.head_pos.x + self.snake_change.x, self.head_pos.y + self.snake_change.y
         self.head_pos = Point(x,y)
